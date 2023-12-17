@@ -53,7 +53,45 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void _recordVideo() {}
+  void _recordVideo() async {
+    try {
+      XFile? video = await picker.pickVideo(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+
+      if (video != null) {
+        setState(() {
+          _selectedVideo = video;
+          _controller = VideoPlayerController.file(File(video.path));
+        });
+
+        await _controller.initialize();
+        if (_controller.value.duration.inSeconds > 90) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return ErrorAlert(
+                  message:
+                     'The captured video\'s duration should not be greater than 1mins30s !');
+            },
+          );
+        } else {
+          await uploadVideo(_selectedVideo);
+        }
+      }
+    } catch (e) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return ErrorAlert(
+              message:
+                  'Please capture a video with a duration of 1min 30s or less.');
+        },
+      );
+      print('Error capturing or processing video:$e');
+    }
+  }
 
   Future<void> uploadVideo(XFile video) async {
     final FirebaseStorage firebaseStorage = FirebaseStorage.instance;
@@ -141,7 +179,7 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ElevatedButton(
-              onPressed: _chooseVideoFromGallery,
+              onPressed:  _chooseVideoFromGallery,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
                 elevation: 8.0,
