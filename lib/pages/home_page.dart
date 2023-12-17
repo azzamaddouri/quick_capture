@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -7,55 +6,76 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  const MyHomePage({Key? key}) : super(key: key);
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late VideoPlayerController _controller;
+  late XFile _selectedVideo;
+  ImagePicker picker = ImagePicker();
+
   Future<void> _chooseVideoFromGallery() async {
-    ImagePicker picker = ImagePicker();
     try {
       XFile? video = await picker.pickVideo(source: ImageSource.gallery);
-      VideoPlayerController controller =
-          VideoPlayerController.file(File(video!.path));
-      await controller.initialize();
-      if (controller.value.duration.inSeconds > 90) {
-        throw ('we only allow videos that are shorter than 1 minute!');
-      } else {
-        await uploadVideo(video);
+      if (video != null) {
+        setState(() {
+          _selectedVideo = video;
+          _controller = VideoPlayerController.file(File(video.path));
+        });
+
+        await _controller.initialize();
+        if (_controller.value.duration.inSeconds > 90) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return ErrorAlert(
+                  message:
+                      'The selected video\'s duration should not be greater than 1mins30s !');
+            },
+          );
+        } else {
+          await uploadVideo(_selectedVideo);
+        }
       }
-      controller.dispose();
     } catch (e) {
-      print("Error Picking Video : $e");
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return ErrorAlert(
+              message:
+                  'Please choose a video with a duration of 1min 30s or less.');
+        },
+      );
+      print(e);
     }
   }
 
   void _recordVideo() {}
+
   Future<void> uploadVideo(XFile video) async {
     final FirebaseStorage firebaseStorage = FirebaseStorage.instance;
-
-    // Generate a unique filename based on the current timestamp
-    String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    String fileName = 'video_$timestamp.mp4';
-
-    Reference ref = firebaseStorage.ref().child('videos/$fileName');
-
+    Reference ref = firebaseStorage
+        .ref()
+        .child('videos/${_selectedVideo.name.replaceFirst(".mp4", "")}.mp4');
     try {
-      // Set metadata to specify the content type
       SettableMetadata metadata = SettableMetadata(contentType: 'video/mp4');
-
-      // Upload file with metadata
-      await ref.putFile(
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return _buildUploadDialog();
+        },
+      );
+      TaskSnapshot taskSnapshot = await ref.putFile(
         File(video.path),
         metadata,
       );
-
       String downloadURL = await ref.getDownloadURL();
-      print(downloadURL);
-
-      // Show toast message on successful upload
+      print('Video uploaded successfully:' + downloadURL);
+      Navigator.of(context).pop();
       Fluttertoast.showToast(
         msg: 'Video uploaded successfully!',
         gravity: ToastGravity.BOTTOM,
@@ -64,13 +84,44 @@ class _MyHomePageState extends State<MyHomePage> {
         textColor: Colors.white,
         fontSize: 16.0,
       );
-
     } catch (e) {
-      print("Error uploading file: $e");
+      Navigator.of(context).pop();
+      print("Upload error: $e");
     }
   }
 
-
+  Widget _buildUploadDialog() {
+    return Dialog(
+      child: Container(
+        padding: EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Colors.blueAccent),
+            SizedBox(width: 30.0),
+            Text('Uploading...'),
+            SizedBox(width: 8.0),
+            StreamBuilder<TaskSnapshot>(
+              stream: FirebaseStorage.instance
+                  .ref()
+                  .child(
+                      'videos/${_selectedVideo.name.replaceFirst(".mp4", "")}.mp4')
+                  .putFile(File(_selectedVideo.path))
+                  .snapshotEvents,
+              builder: (context, snapshot) {
+                double progress = 0.0;
+                if (snapshot.hasData) {
+                  progress = snapshot.data!.bytesTransferred /
+                      snapshot.data!.totalBytes;
+                }
+                return Text('${(progress * 100).toInt()}%');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +176,31 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class ErrorAlert extends StatelessWidget {
+  final String message;
+
+  const ErrorAlert({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Error'),
+      content: Text(message),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: Text(
+            'OK',
+            style: TextStyle(color: Colors.blueAccent),
+          ),
+        ),
+      ],
     );
   }
 }
