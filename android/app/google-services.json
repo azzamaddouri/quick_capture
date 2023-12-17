@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "262282868335",
+    "project_id": "fir-media-hub-f275f",
+    "storage_bucket": "fir-media-hub-f275f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:262282868335:android:de8a658904ca3639c5bf9a",
+        "android_client_info": {
+          "package_name": "com.example.quick_capture"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBMt4cV886_mAb4BK5yLvY5rE29oAxVqM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
